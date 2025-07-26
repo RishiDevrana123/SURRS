@@ -5,9 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Camera, MapPin, ArrowLeft, Upload, Loader2, CheckCircle } from "lucide-react";
+import { Camera, MapPin, ArrowLeft, Upload, Loader2, CheckCircle, AlertTriangle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import CloudinaryUpload from "@/components/CloudinaryUpload";
 
 const ReportIssue = () => {
   const navigate = useNavigate();
@@ -23,6 +24,8 @@ const ReportIssue = () => {
   });
   const [materialEstimate, setMaterialEstimate] = useState<string | null>(null);
   const [location, setLocation] = useState<{lat: number, lng: number} | null>(null);
+  const [uploadedImages, setUploadedImages] = useState<string[]>([]);
+  const [aiAnalysisResults, setAiAnalysisResults] = useState<any[]>([]);
 
   const issueTypes = [
     { value: "pothole", label: "Pothole" },
@@ -38,6 +41,19 @@ const ReportIssue = () => {
     { value: "high", label: "High - Safety hazard" },
     { value: "critical", label: "Critical - Emergency" }
   ];
+
+  const handleImageUpload = (imageUrl: string, analysisData?: any) => {
+    setUploadedImages(prev => [...prev, imageUrl]);
+    if (analysisData) {
+      setAiAnalysisResults(prev => [...prev, analysisData]);
+      // Auto-set severity based on AI analysis from Python Flask API
+      if (!formData.severity) {
+        setFormData(prev => ({ ...prev, severity: analysisData.severity.toLowerCase() }));
+      }
+      // Set material estimate from AI analysis
+      setMaterialEstimate(`${analysisData.materialEstimate.asphalt} asphalt, ${analysisData.materialEstimate.cement} cement - Area: ${analysisData.area}m², Depth: ${analysisData.depth}m`);
+    }
+  };
 
   const getCurrentLocation = () => {
     if (navigator.geolocation) {
@@ -67,25 +83,6 @@ const ReportIssue = () => {
     }
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setFormData(prev => ({ ...prev, image: file }));
-      
-      // Simulate AI analysis for material estimation
-      setTimeout(() => {
-        if (formData.type === "pothole") {
-          setMaterialEstimate("Estimated materials: 15kg asphalt mix, 2 bags cement, 0.5m³ aggregate");
-        } else if (formData.type === "waterlogged") {
-          setMaterialEstimate("Estimated solution: Drainage pipe cleaning, 3 drain covers");
-        } else if (formData.type === "sewage") {
-          setMaterialEstimate("Emergency response required: Professional cleaning crew");
-        } else {
-          setMaterialEstimate("Material estimate will be calculated by municipal engineers");
-        }
-      }, 2000);
-    }
-  };
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
@@ -252,27 +249,49 @@ const ReportIssue = () => {
               {currentStep === 2 && (
                 <>
                   <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label>Upload Photo</Label>
-                      <div className="border-2 border-dashed border-border rounded-lg p-6 text-center">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handleImageUpload}
-                          className="hidden"
-                          id="image-upload"
-                        />
-                        <label htmlFor="image-upload" className="cursor-pointer">
-                          <Upload className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                          <p className="text-sm text-muted-foreground">
-                            Click to upload photo of the issue
-                          </p>
-                        </label>
-                      </div>
-                      {formData.image && (
-                        <p className="text-sm text-success">✓ Image uploaded: {formData.image.name}</p>
-                      )}
-                    </div>
+                    {/* Cloudinary Upload with AI Analysis */}
+                    <CloudinaryUpload onImageUpload={handleImageUpload} />
+
+                    {/* AI Analysis Results */}
+                    {aiAnalysisResults.length > 0 && (
+                      <Card className="border border-primary/20 bg-primary/5">
+                        <CardHeader>
+                          <CardTitle className="flex items-center gap-2 text-primary">
+                            <AlertTriangle className="w-5 h-5" />
+                            AI Analysis Results (Python Flask API)
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-4">
+                            {aiAnalysisResults.map((result, index) => (
+                              <div key={index} className="p-4 bg-white rounded-lg border">
+                                <div className="grid grid-cols-2 gap-4 text-sm">
+                                  <div>
+                                    <p><strong>Estimated Area:</strong> {result.area}m²</p>
+                                    <p><strong>Estimated Depth:</strong> {result.depth}m</p>
+                                  </div>
+                                  <div>
+                                    <p><strong>Asphalt Needed:</strong> {result.materialEstimate.asphalt}</p>
+                                    <p><strong>Cement Needed:</strong> {result.materialEstimate.cement}</p>
+                                  </div>
+                                  <div className="col-span-2">
+                                    <p><strong>Severity Assessment:</strong> 
+                                      <span className={`ml-2 px-2 py-1 rounded text-xs ${
+                                        result.severity === 'High' ? 'bg-red-100 text-red-800' :
+                                        result.severity === 'Medium' ? 'bg-yellow-100 text-yellow-800' :
+                                        'bg-green-100 text-green-800'
+                                      }`}>
+                                        {result.severity}
+                                      </span>
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
 
                     <div className="space-y-2">
                       <Label htmlFor="location">Location</Label>
@@ -307,7 +326,7 @@ const ReportIssue = () => {
                       className="flex-1" 
                       variant="municipal"
                       onClick={handleSubmit}
-                      disabled={!formData.image || !formData.location || isSubmitting}
+                      disabled={uploadedImages.length === 0 || !formData.location || isSubmitting}
                     >
                       {isSubmitting ? (
                         <>

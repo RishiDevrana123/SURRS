@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import MapView from "@/components/MapView";
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
@@ -26,13 +27,14 @@ const AdminDashboard = () => {
   const [selectedFilter, setSelectedFilter] = useState("all");
   const [selectedSeverity, setSelectedSeverity] = useState("all");
 
-  // Sample reports data for admin view
+  // Sample reports data for admin view with coordinates for Leaflet.js
   const [reports] = useState([
     {
       id: 1,
       type: "Pothole",
       location: "Main St & 5th Ave",
-      coordinates: { lat: 40.7128, lng: -74.0060 },
+      lat: 40.7128,
+      lng: -74.0060,
       status: "In Progress",
       severity: "High",
       reportedBy: "John Doe",
@@ -45,7 +47,8 @@ const AdminDashboard = () => {
       id: 2,
       type: "Waterlogged Area",
       location: "Park Avenue",
-      coordinates: { lat: 40.7589, lng: -73.9851 },
+      lat: 40.7589,
+      lng: -73.9851,
       status: "Resolved",
       severity: "Medium",
       reportedBy: "Jane Smith",
@@ -58,7 +61,8 @@ const AdminDashboard = () => {
       id: 3,
       type: "Sewage Overflow",
       location: "Elm Street",
-      coordinates: { lat: 40.7505, lng: -73.9934 },
+      lat: 40.7505,
+      lng: -73.9934,
       status: "Pending",
       severity: "High",
       reportedBy: "Mike Johnson",
@@ -71,7 +75,8 @@ const AdminDashboard = () => {
       id: 4,
       type: "Blocked Drain",
       location: "Broadway & 42nd",
-      coordinates: { lat: 40.7580, lng: -73.9855 },
+      lat: 40.7580,
+      lng: -73.9855,
       status: "In Progress",
       severity: "Medium",
       reportedBy: "Sarah Wilson",
@@ -81,6 +86,9 @@ const AdminDashboard = () => {
       image: "https://images.unsplash.com/photo-1426604966848-d7adac402bff?w=300&h=200&fit=crop"
     }
   ]);
+
+  const [selectedReport, setSelectedReport] = useState<any>(null);
+  const [showMap, setShowMap] = useState(true);
 
   const [weatherData] = useState({
     temperature: 18,
@@ -210,6 +218,16 @@ const AdminDashboard = () => {
           </Card>
         </div>
 
+        {/* Interactive Map with Leaflet.js & OpenStreetMap */}
+        {showMap && (
+          <div className="mb-8">
+            <MapView 
+              reports={filteredReports} 
+              onReportSelect={(report) => setSelectedReport(report)}
+            />
+          </div>
+        )}
+
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Reports Management */}
           <div className="lg:col-span-2">
@@ -226,6 +244,14 @@ const AdminDashboard = () => {
                     </CardDescription>
                   </div>
                   <div className="flex gap-2">
+                    <Button 
+                      variant={showMap ? "municipal" : "outline"} 
+                      size="sm"
+                      onClick={() => setShowMap(!showMap)}
+                    >
+                      <MapPin className="w-4 h-4 mr-2" />
+                      {showMap ? "Hide Map" : "Show Map"}
+                    </Button>
                     <Select value={selectedFilter} onValueChange={setSelectedFilter}>
                       <SelectTrigger className="w-32">
                         <SelectValue />
